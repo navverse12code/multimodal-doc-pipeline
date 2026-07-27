@@ -4,7 +4,10 @@ from pathlib import Path
 from config import DOCS_DIR
 from ingest import ingest_directory
 from query_engine import query_pipeline
-from database import get_connection
+from database import get_connection, init_db
+
+# Initialize DB on Startup
+init_db()
 
 # Page Configuration
 st.set_page_config(
@@ -79,6 +82,17 @@ if prompt := st.chat_input("Ask any question about your documents..."):
     # Generate Response
     with st.chat_message("assistant"):
         with st.spinner("Searching SQLite & synthesizing answer..."):
-            response = query_pipeline(prompt)
+            # Check if any documents are ingested
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM documents")
+            doc_count = cursor.fetchone()[0]
+            conn.close()
+
+            if doc_count == 0:
+                response = "⚠️ No documents ingested yet! Please click **'Process & Ingest Files'** in the left sidebar to index your uploaded files first."
+            else:
+                response = query_pipeline(prompt)
+
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})

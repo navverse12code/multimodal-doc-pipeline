@@ -120,7 +120,8 @@ def execute_read_only_query(sql_query: str) -> tuple[list[str], list[tuple]]:
     return columns, rows
 
 def fts_search(query_term: str, limit: int = 10):
-    """Direct Full-Text Search helper with query term sanitization."""
+    """Direct Full-Text Search helper with query term sanitization and auto-init."""
+    init_db()
     conn = get_connection()
     cursor = conn.cursor()
     
@@ -131,12 +132,18 @@ def fts_search(query_term: str, limit: int = 10):
         return []
         
     fts_query = " OR ".join(words)
-    cursor.execute(
-        "SELECT filename, page_number, content FROM document_fts WHERE document_fts MATCH ? LIMIT ?",
-        (fts_query, limit)
-    )
-    results = cursor.fetchall()
-    conn.close()
+    try:
+        cursor.execute(
+            "SELECT filename, page_number, content FROM document_fts WHERE document_fts MATCH ? LIMIT ?",
+            (fts_query, limit)
+        )
+        results = cursor.fetchall()
+    except Exception as e:
+        logger.warning(f"FTS search exception: {e}")
+        results = []
+    finally:
+        conn.close()
+
     return results
 
 if __name__ == "__main__":
